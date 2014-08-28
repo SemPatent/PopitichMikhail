@@ -1,0 +1,56 @@
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.converter import TextConverter
+from pdfminer.layout import LAParams
+from pdfminer.pdfpage import PDFPage
+from cStringIO import StringIO
+import re
+
+
+class PDFtoTXT:
+    @staticmethod
+    def __countPages(in_Pdf_File_Path):
+        rxcountpages = re.compile(r"/Type\s*/Page([^s]|$)", re.MULTILINE|re.DOTALL)
+        data = file(in_Pdf_File_Path, 'rb').read()
+        return len(rxcountpages.findall(data))
+
+    @staticmethod
+    def __IsText(FileObject,in_Pdf_File_Path):
+        FileObject.seek(0,2) # move the cursor to the end of the file
+        SizeOnePage = FileObject.tell()/ PDFtoTXT.__countPages(in_Pdf_File_Path)
+        Text = True
+        if SizeOnePage > 200000:
+           Text = False
+        return Text
+    @staticmethod
+    def __getStrFromPdf(in_Pdf_File_Path):
+        fp = file(in_Pdf_File_Path, 'rb')
+        if  PDFtoTXT.__IsText(fp,in_Pdf_File_Path):
+            rsrcmgr = PDFResourceManager()
+            retstr = StringIO()
+            codec = 'utf-8'
+            laparams = LAParams()
+            device = TextConverter(rsrcmgr, retstr, codec=codec, laparams=laparams)
+            interpreter = PDFPageInterpreter(rsrcmgr, device)
+            password = ""
+            maxpages = 0
+            caching = True
+            pagenos=set()
+
+            pages = PDFPage.get_pages(fp, pagenos, maxpages=maxpages, password=password,caching=caching, check_extractable=True)
+
+            for page in pages:
+                interpreter.process_page(page)
+            fp.close()
+            device.close()
+            str = retstr.getvalue()
+            retstr.close()
+        return str
+
+    @staticmethod
+    def ConvertPdfToText(in_Pdf_File_Path, out_Txt_File_Path):
+        fo= open(out_Txt_File_Path, "w")
+        fo.write(PDFtoTXT.__getStrFromPdf(in_Pdf_File_Path))
+        fo.close()
+
+
+PDFtoTXT.ConvertPdfToText("mypdf.pdf","2.txt")
